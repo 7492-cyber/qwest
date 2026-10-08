@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Карта школы: Квест-оптимизатор!</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+    font-family: 'Comic Sans MS', 'Trebuchet MS', sans-serif;
+    background: linear-gradient(135deg, #FFE5B4 0%, #B5E8FF 50%, #FFD4E5 100%);
+    min-height: 100vh;
+    padding: 20px;
+    color: #3D2C5E;
+    overflow-x: hidden;
+  }
+  
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  header {
+    text-align: center;
+    margin-bottom: 20px;
+    animation: slideDown 0.8s ease;
+  }
+  
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  h1 {
+    font-size: 2.5em;
+    color: #FF6B35;
+    text-shadow: 3px 3px 0 #FFD93D, 6px 6px 15px rgba(0,0,0,0.15);
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+  }
+  
+  .subtitle {
+    font-size: 1.2em;
+    color: #5E4B8B;
+    background: rgba(255,255,255,0.7);
+    padding: 10px 20px;
+    border-radius: 20px;
+    display: inline-block;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  }
+  
+  .game-wrapper {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+  
+  @media (max-width: 900px) {
+    .game-wrapper { grid-template-columns: 1fr; }
+  }
+  
+  .game-board {
+    background: linear-gradient(145deg, #FFF9E6, #FFE8D6);
+    border-radius: 30px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(100, 80, 150, 0.2), inset 0 0 0 4px #FFD93D;
+    position: relative;
+  }
+  
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 4px;
+    background: #E8D5B7;
+    padding: 10px;
+    border-radius: 20px;
+    box-shadow: inset 0 4px 10px rgba(0,0,0,0.1);
+  }
+  
+  .cell {
+    aspect-ratio: 1;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    user-select: none;
+  }
+  
+  .cell.floor {
+    background: linear-gradient(145deg, #FFF5DC, #FFE8B8);
+    box-shadow: inset 0 -2px 4px rgba(0,0,0,0.05);
+  }
+  
+  .cell.floor:hover {
+    background: linear-gradient(145deg, #FFF0C0, #FFD88A);
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(255, 180, 80, 0.4);
+  }
+  
+  .cell.wall {
+    background: linear-gradient(145deg, #8B6F47, #6B5437);
+    cursor: not-allowed;
+    box-shadow: inset 0 -3px 6px rgba(0,0,0,0.3);
+  }
+  
+  .cell.wall::before {
+    content: '🧱';
+    font-size: 0.9em;
+    opacity: 0.6;
+  }
+  
+  .cell.room {
+    background: linear-gradient(145deg, #A8E6FF, #7DD3F0);
+    box-shadow: 0 4px 10px rgba(100, 180, 220, 0.4);
+    animation: roomPulse 2s infinite;
+  }
+  
+  @keyframes roomPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); box-shadow: 0 6px 15px rgba(100, 180, 220, 0.6); }
+  }
+  
+  .cell.room.visited {
+    background: linear-gradient(145deg, #B8F5B8, #7DD87D);
+    animation: none;
+    box-shadow: 0 4px 10px rgba(100, 200, 100, 0.4);
+  }
+  
+  .cell.room.visited::after {
+    content: '✓';
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #FF6B35;
+    color: white;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    font-size: 0.8em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  }
+  
+  .cell.start {
+    background: linear-gradient(145deg, #FFD93D, #FFB627);
+    box-shadow: 0 4px 12px rgba(255, 180, 50, 0.5);
+  }
+  
+  .player {
+    position: absolute;
+    width: 80%;
+    height: 80%;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 10;
+    pointer-events: none;
+  }
+  
+  .player.jumping {
+    animation: jump 0.4s ease;
+  }
+  
+  @keyframes jump {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-15px) scale(1.1); }
+  }
+  
+  .sidebar {
+    background: linear-gradient(145deg, #FFFFFF, #FFF5E6);
+    border-radius: 30px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(100, 80, 150, 0.2), inset 0 0 0 4px #FF9ECD;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .level-selector {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+  }
+  
+  .level-btn {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 15px;
+    font-family: inherit;
+    font-size: 0.9em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: linear-gradient(145deg, #E0E0E0, #C0C0C0);
+    color: #666;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+  }
+  
+  .level-btn.active {
+    background: linear-gradient(145deg, #FF6B35, #FF4500);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(255, 100, 50, 0.4);
+  }
+  
+  .level-btn:hover:not(.active) {
+    transform: translateY(-1px);
+    background: linear-gradient(145deg, #FFD93D, #FFB627);
+    color: #3D2C5E;
+  }
+  
+  .stats {
+    background: linear-gradient(145deg, #FFF9E6, #FFE8D6);
+    border-radius: 20px;
+    padding: 15px;
+    text-align: center;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+  }
+  
+  .stats-label {
+    font-size: 0.9em;
+    color: #8B6F47;
+    margin-bottom: 5px;
+  }
+  
+  .stats-value {
+    font-size: 2.5em;
+    font-weight: bold;
+    color: #FF6B35;
+    text-shadow: 2px 2px 0 #FFD93D;
+  }
+  
+  .checklist {
+    background: linear-gradient(145deg, #E8F5FF, #D0EAFF);
+    border-radius: 20px;
+    padding: 15px;
+  }
+  
+  .checklist-title {
+    font-size: 1em;
+    color: #3D5A80;
+    margin-bottom: 10px;
+    text-align: center;
+    font-weight: bold;
+  }
+  
+  .checklist-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    background: white;
+    border-radius: 12px;
+    margin-bottom: 6px;
+    transition: all 0.3s;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  }
+  
+  .checklist-item.done {
+    background: linear-gradient(145deg, #B8F5B8, #7DD87D);
+    text-decoration: line-through;
+    opacity: 0.7;
+  }
+  
+  .checklist-icon {
+    font-size: 1.5em;
+  }
+  
+  .checklist-text {
+    font-size: 0.9em;
+    color: #3D2C5E;
+    font-weight: bold;
+  }
+  
+  .restart-btn {
+    padding: 15px;
+    border: none;
+    border-radius: 20px;
+    background: linear-gradient(145deg, #A78BFA, #7C3AED);
+    color: white;
+    font-family: inherit;
+    font-size: 1.1em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 6px 15px rgba(124, 58, 237, 0.3);
+  }
+  
+  .restart-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(124, 58, 237, 0.5);
+  }
+  
+  .restart-btn:active {
+    transform: translateY(0);
+  }
+  
+  .legend {
+    background: rgba(255,255,255,0.8);
+    border-radius: 20px;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+  }
+  
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95em;
+    color: #3D2C5E;
+    font-weight: bold;
+  }
+  
+  .legend-swatch {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1em;
+  }
+  
+  /* Модальное окно победы */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(61, 44, 94, 0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    backdrop-filter: blur(5px);
+  }
+  
+  .modal-overlay.active {
+    display: flex;
+    animation: fadeIn 0.3s;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  .modal {
+    background: linear-gradient(145deg, #FFF9E6, #FFE8D6);
+    border-radius: 30px;
+    padding: 40px;
+    text-align: center;
+    max-width: 450px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3), inset 0 0 0 5px #FFD93D;
+    animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+  }
+  
+  @keyframes popIn {
+    from { transform: scale(0.5); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  
+  .modal h2 {
+    font-size: 2em;
+    color: #FF6B35;
+    margin-bottom: 15px;
+    text-shadow: 2px 2px 0 #FFD93D;
+  }
+  
+  .stars {
+    font-size: 3em;
+    margin: 20px 0;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+  }
+  
+  .star {
+    display: inline-block;
+    opacity: 0.3;
+    filter: grayscale(1);
+    transition: all 0.5s;
+  }
+  
+  .star.earned {
+    opacity: 1;
+    filter: none;
+    animation: starPop 0.6s ease backwards;
+  }
+  
+  .star:nth-child(1).earned { animation-delay: 0.2s; }
+  .star:nth-child(2).earned { animation-delay: 0.5s; }
+  .star:nth-child(3).earned { animation-delay: 0.8s; }
+  
+  @keyframes starPop {
+    0% { transform: scale(0) rotate(-180deg); }
+    60% { transform: scale(1.3) rotate(20deg); }
+    100% { transform: scale(1) rotate(0); }
+  }
+  
+  .modal-text {
+    font-size: 1.1em;
+    color: #5E4B8B;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+  
+  .modal-btn {
+    padding: 12px 30px;
+    border: none;
+    border-radius: 20px;
+    background: linear-gradient(145deg, #FF6B35, #FF4500);
+    color: white;
+    font-family: inherit;
+    font-size: 1.1em;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 6px 15px rgba(255, 100, 50, 0.4);
+    transition: all 0.2s;
+  }
+  
+  .modal-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255, 100, 50, 0.6);
+  }
+  
+  /* Конфетти */
+  .confetti {
+    position: fixed;
+    width: 10px;
+    height: 10px;
+    pointer-events: none;
+    z-index: 99;
+    animation: confettiFall 3s linear forwards;
+  }
+  
+  @keyframes confettiFall {
+    to {
+      transform: translateY(100vh) rotate(720deg);
+      opacity: 0;
+    }
+  }
+  
+  .hint {
+    background: linear-gradient(145deg, #FFE5E5, #FFD0D0);
+    border-radius: 15px;
+    padding: 10px 15px;
+    font-size: 0.85em;
+    color: #8B3A3A;
+    text-align: center;
+    box-shadow: inset 0 0 0 2px #FF9E9E;
+  }
+  
+  .hint strong {
+    color: #D32F2F;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>🏫 Карта школы: Квест-оптимизатор!</h1>
+    <div class="subtitle">Посети все кабинеты за минимум шагов!</div>
+  </header>
+  
+  <div class="game-wrapper">
+    <div class="game-board">
+      <div class="grid" id="grid"></div>
+    </div>
+    
+    <div class="sidebar">
+      <div class="level-selector">
+        <button class="level-btn active" data-level="1">Лёгкий</button>
+        <button class="level-btn" data-level="2">Средний</button>
+        <button class="level-btn" data-level="3">Сложный</button>
+      </div>
+      
+      <div class="stats">
+        <div class="stats-label">Твои шаги 👟</div>
+        <div class="stats-value" id="steps">0</div>
+      </div>
+      
+      <div class="checklist">
+        <div class="checklist-title">📋 Что нужно посетить:</div>
+        <div id="checklist"></div>
+      </div>
+      
+      <div class="hint">
+        💡 <strong>Совет:</strong> кликай по соседним клеткам, чтобы двигаться. Постарайся найти самый короткий путь!
+      </div>
+      
+      <button class="restart-btn" id="restart">🔄 Начать заново</button>
+    </div>
+  </div>
+  
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-swatch" style="background: linear-gradient(145deg, #FFD93D, #FFB627);">🧒</div>
+      <span>Ты</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background: linear-gradient(145deg, #A8E6FF, #7DD3F0);">📐</div>
+      <span>Кабинет</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background: linear-gradient(145deg, #8B6F47, #6B5437); color: white;">🧱</div>
+      <span>Стена</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background: linear-gradient(145deg, #B8F5B8, #7DD87D);">✓</div>
+      <span>Посещено</span>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2 id="modal-title">🎉 Ура! Ты справился!</h2>
+    <div class="stars" id="stars">
+      <span class="star">⭐</span>
+      <span class="star">⭐</span>
+      <span class="star">⭐</span>
+    </div>
+    <div class="modal-text" id="modal-text"></div>
+    <button class="modal-btn" id="modal-btn">Играть дальше!</button>
+  </div>
+</div>
+
+<script>
+// Карта школы: # стена, . пол, S старт, буквы - кабинеты
+const MAP = [
+  "..........",
+  ".S...##...",
+  "....##.A..",
+  ".##......#",
+  "....##....",
+  ".B....##..",
+  "..##...C..",
+  ".........."
+];
+
+const ROOMS = {
+  'A': { icon: '📐', name: 'Математика (305)', color: '#A8E6FF' },
+  'B': { icon: '🌿', name: 'Биология (210)', color: '#B8F5B8' },
+  'C': { icon: '🍎', name: 'Столовая', color: '#FFD4A8' },
+  'D': { icon: '📚', name: 'Библиотека', color: '#E8C8FF' },
+  'E': { icon: '⚽', name: 'Спортзал', color: '#FFB8B8' },
+  'F': { icon: '🧪', name: 'Химия', color: '#C8FFE8' },
+  'G': { icon: '📜', name: 'История', color: '#FFE8C8' }
+};
+
+const LEVELS = {
+  1: { rooms: ['A', 'B', 'C'], optimal: 0 },
+  2: { rooms: ['A', 'B', 'C', 'D', 'E'], optimal: 0 },
+  3: { rooms: ['A', 'B', 'C', 'D', 'E', 'F', 'G'], optimal: 0 }
+};
+
+// Находим все кабинеты на карте и добавляем недостающие
+function initRoomsOnMap() {
+  const allRoomKeys = Object.keys(ROOMS);
+  const existingRooms = new Set();
+  for (let r = 0; r < MAP.length; r++) {
+    for (let c = 0; c < MAP[r].length; c++) {
+      if (ROOMS[MAP[r][c]]) existingRooms.add(MAP[r][c]);
+    }
+  }
+  // Добавим недостающие кабинеты на свободные клетки
+  let emptyCells = [];
+  for (let r = 0; r < MAP.length; r++) {
+    for (let c = 0; c < MAP[r].length; c++) {
+      if (MAP[r][c] === '.') emptyCells.push([r, c]);
+    }
+  }
+  // Перемешаем
+  emptyCells.sort(() => Math.random() - 0.5);
+  let idx = 0;
+  for (const key of allRoomKeys) {
+    if (!existingRooms.has(key) && idx < emptyCells.length) {
+      const [r, c] = emptyCells[idx++];
+      MAP[r] = MAP[r].substring(0, c) + key + MAP[r].substring(c + 1);
+    }
+  }
+}
+initRoomsOnMap();
+
+// Находим позицию символа на карте
+function findPos(symbol) {
+  for (let r = 0; r < MAP.length; r++) {
+    for (let c = 0; c < MAP[r].length; c++) {
+      if (MAP[r][c] === symbol) return { r, c };
+    }
+  }
+  return null;
+}
+
+// BFS для кратчайшего пути между двумя точками
+function bfs(startR, startC, endR, endC) {
+  const rows = MAP.length, cols = MAP[0].length;
+  const visited = Array.from({length: rows}, () => Array(cols).fill(false));
+  const queue = [[startR, startC, 0]];
+  visited[startR][startC] = true;
+  const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
+  while (queue.length) {
+    const [r, c, d] = queue.shift();
+    if (r === endR && c === endC) return d;
+    for (const [dr, dc] of dirs) {
+      const nr = r + dr, nc = c + dc;
+      if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && !visited[nr][nc] && MAP[nr][nc] !== '#') {
+        visited[nr][nc] = true;
+        queue.push([nr, nc, d + 1]);
+      }
+    }
+  }
+  return Infinity;
+}
+
+// Расчёт оптимального маршрута (перебор перестановок)
+function calcOptimal(startPos, roomKeys) {
+  if (roomKeys.length === 0) return 0;
+  const positions = roomKeys.map(k => findPos(k));
+  
+  // Матрица расстояний
+  const points = [startPos, ...positions];
+  const dist = [];
+  for (let i = 0; i < points.length; i++) {
+    dist[i] = [];
+    for (let j = 0; j < points.length; j++) {
+      dist[i][j] = bfs(points[i].r, points[i].c, points[j].r, points[j].c);
+    }
+  }
+  
+  // Перебор всех перестановок комнат (индексы 1..n)
+  const n = roomKeys.length;
+  let minDist = Infinity;
+  
+  function permute(arr, l, r) {
+    if (l === r) {
+      let total = dist[0][arr[0] + 1];
+      for (let i = 0; i < arr.length - 1; i++) {
+        total += dist[arr[i] + 1][arr[i+1] + 1];
+      }
+      if (total < minDist) minDist = total;
+      return;
+    }
+    for (let i = l; i <= r; i++) {
+      [arr[l], arr[i]] = [arr[i], arr[l]];
+      permute(arr, l + 1, r);
+      [arr[l], arr[i]] = [arr[i], arr[l]];
+    }
+  }
+  
+  const indices = Array.from({length: n}, (_, i) => i);
+  permute(indices, 0, n - 1);
+  return minDist;
+}
+
+// Состояние игры
+let state = {
+  level: 1,
+  playerPos: findPos('S'),
+  visited: new Set(),
+  steps: 0,
+  targetRooms: []
+};
+
+function initLevel(level) {
+  state.level = level;
+  state.playerPos = findPos('S');
+  state.visited = new Set();
+  state.steps = 0;
+  state.targetRooms = LEVELS[level].rooms.filter(r => findPos(r));
+  LEVELS[level].optimal = calcOptimal(state.playerPos, state.targetRooms);
+  render();
+}
+
+function render() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  
+  for (let r = 0; r < MAP.length; r++) {
+    for (let c = 0; c < MAP[r].length; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      const ch = MAP[r][c];
+      
+      if (ch === '#') {
+        cell.classList.add('wall');
+      } else if (ch === 'S') {
+        cell.classList.add('start', 'floor');
+        cell.innerHTML = '🚪';
+      } else if (ROOMS[ch]) {
+        cell.classList.add('room');
+        if (state.visited.has(ch)) cell.classList.add('visited');
+        cell.innerHTML = ROOMS[ch].icon;
+        cell.dataset.room = ch;
+      } else {
+        cell.classList.add('floor');
+      }
+      
+      cell.dataset.r = r;
+      cell.dataset.c = c;
+      cell.addEventListener('click', () => handleClick(r, c));
+      grid.appendChild(cell);
+    }
+  }
+  
+  // Добавляем игрока
+  const player = document.createElement('div');
+  player.className = 'player';
+  player.id = 'player';
+  player.innerHTML = `
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="faceGrad" cx="50%" cy="40%">
+          <stop offset="0%" stop-color="#FFE5B4"/>
+          <stop offset="100%" stop-color="#FFB88C"/>
+        </radialGradient>
+      </defs>
+      <!-- Рюкзак -->
+      <ellipse cx="30" cy="65" rx="12" ry="18" fill="#FF6B35"/>
+      <rect x="22" y="55" width="16" height="5" fill="#D32F2F" rx="2"/>
+      <!-- Тело -->
+      <ellipse cx="50" cy="75" rx="22" ry="18" fill="#7DD3F0"/>
+      <!-- Голова -->
+      <circle cx="50" cy="40" r="25" fill="url(#faceGrad)" stroke="#E8956D" stroke-width="1.5"/>
+      <!-- Волосы -->
+      <path d="M 28 35 Q 30 18 50 15 Q 70 18 72 35 Q 68 25 50 23 Q 32 25 28 35 Z" fill="#6B4423"/>
+      <!-- Глаза -->
+      <ellipse cx="42" cy="40" rx="4" ry="5" fill="white"/>
+      <ellipse cx="58" cy="40" rx="4" ry="5" fill="white"/>
+      <circle cx="43" cy="41" r="2.5" fill="#3D2C5E"/>
+      <circle cx="59" cy="41" r="2.5" fill="#3D2C5E"/>
+      <circle cx="44" cy="40" r="0.8" fill="white"/>
+      <circle cx="60" cy="40" r="0.8" fill="white"/>
+      <!-- Щёчки -->
+      <circle cx="36" cy="48" r="3" fill="#FFB8B8" opacity="0.6"/>
+      <circle cx="64" cy="48" r="3" fill="#FFB8B8" opacity="0.6"/>
+      <!-- Улыбка -->
+      <path d="M 42 52 Q 50 58 58 52" stroke="#8B4513" stroke-width="2" fill="none" stroke-linecap="round"/>
+    </svg>
+  `;
+  grid.appendChild(player);
+  updatePlayerPosition(false);
+  
+  // Обновляем счётчик
+  document.getElementById('steps').textContent = state.steps;
+  
+  // Обновляем чеклист
+  const checklist = document.getElementById('checklist');
+  checklist.innerHTML = '';
+  state.targetRooms.forEach(roomKey => {
+    const room = ROOMS[roomKey];
+    const item = document.createElement('div');
+    item.className = 'checklist-item' + (state.visited.has(roomKey) ? ' done' : '');
+    item.innerHTML = `
+      <span class="checklist-icon">${room.icon}</span>
+      <span class="checklist-text">${room.name}</span>
+    `;
+    checklist.appendChild(item);
+  });
+}
+
+function updatePlayerPosition(animate = true) {
+  const player = document.getElementById('player');
+  if (!player) return;
+  const grid = document.getElementById('grid');
+  const gridRect = grid.getBoundingClientRect();
+  const cellSize = (gridRect.width - 20) / 10; // минус padding
+  const { r, c } = state.playerPos;
+  player.style.width = cellSize + 'px';
+  player.style.height = cellSize + 'px';
+  player.style.left = (10 + c * (cellSize + 0.4)) + 'px';
+  player.style.top = (10 + r * (cellSize + 0.4)) + 'px';
+  if (animate) {
+    player.classList.remove('jumping');
+    void player.offsetWidth;
+    player.classList.add('jumping');
+  }
+}
+
+function handleClick(r, c) {
+  const { r: pr, c: pc } = state.playerPos;
+  const dr = Math.abs(r - pr), dc = Math.abs(c - pc);
+  
+  // Проверка: соседняя клетка (не по диагонали)
+  if (!((dr === 1 && dc === 0) || (dr === 0 && dc === 1))) return;
+  
+  // Проверка: не стена
+  if (MAP[r][c] === '#') return;
+  
+  // Двигаем игрока
+  state.playerPos = { r, c };
+  state.steps++;
+  
+  // Если это кабинет — отмечаем
+  const ch = MAP[r][c];
+  if (ROOMS[ch] && state.targetRooms.includes(ch) && !state.visited.has(ch)) {
+    state.visited.add(ch);
+  }
+  
+  render();
+  
+  // Проверка победы
+  if (state.targetRooms.every(room => state.visited.has(room))) {
+    setTimeout(showVictory, 400);
+  }
+}
+
+function showVictory() {
+  const optimal = LEVELS[state.level].optimal;
+  const steps = state.steps;
+  const ratio = steps / optimal;
+  
+  let stars = 1;
+  if (ratio <= 1.05) stars = 3;
+  else if (ratio <= 1.25) stars = 2;
+  
+  const starsEl = document.querySelectorAll('#stars .star');
+  starsEl.forEach((s, i) => {
+    s.classList.toggle('earned', i < stars);
+  });
+  
+  let title, text;
+  if (stars === 3) {
+    title = '🏆 Идеальный маршрут!';
+    text = `Ты настоящий мастер оптимизации! Всего <strong>${steps}</strong> шагов — это минимум!`;
+  } else if (stars === 2) {
+    title = '🎉 Отличный результат!';
+    text = `Ты прошёл за <strong>${steps}</strong> шагов. Идеал — <strong>${optimal}</strong>. Попробуй ещё раз — вдруг найдёшь путь короче?`;
+  } else {
+    title = '✨ Ты справился!';
+    text = `Ты прошёл за <strong>${steps}</strong> шагов. Идеал — <strong>${optimal}</strong>. Подсказка: планируй маршрут заранее!`;
+  }
+  
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-text').innerHTML = text;
+  document.getElementById('modal').classList.add('active');
+  
+  // Конфетти
+  launchConfetti();
+}
+
+function launchConfetti() {
+  const colors = ['#FF6B35', '#FFD93D', '#7DD3F0', '#A78BFA', '#FF9ECD', '#7DD87D'];
+  for (let i = 0; i < 60; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti';
+    c.style.left = Math.random() * 100 + 'vw';
+    c.style.top = '-20px';
+    c.style.background = colors[Math.floor(Math.random() * colors.length)];
+    c.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    c.style.animationDuration = (2 + Math.random() * 2) + 's';
+    c.style.animationDelay = Math.random() * 0.5 + 's';
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 4000);
+  }
+}
+
+// Обработчики
+document.querySelectorAll('.level-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    initLevel(parseInt(btn.dataset.level));
+  });
+});
+
+document.getElementById('restart').addEventListener('click', () => {
+  initLevel(state.level);
+});
+
+document.getElementById('modal-btn').addEventListener('click', () => {
+  document.getElementById('modal').classList.remove('active');
+  initLevel(state.level);
+});
+
+window.addEventListener('resize', () => updatePlayerPosition(false));
+
+// Старт
+initLevel(1);
+</script>
+</body>
+</html>
